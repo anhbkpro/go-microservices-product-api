@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"github.com/anhbkpro/go-microservices-product-api/data"
 	"github.com/gorilla/mux"
 	"log"
@@ -64,13 +65,30 @@ type KeyProduct struct{}
 func (p Products) MiddlewareValidateProduct(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		prod := &data.Product{}
+
 		err := prod.FromJSON(r.Body)
 		if err != nil {
-			http.Error(rw, "Unable to unmarshal json", http.StatusBadRequest)
+			p.l.Println("[ERROR] deserializing product", err)
+			http.Error(rw, "Error reading product", http.StatusBadRequest)
+			return
 		}
 
+		// validate the product
+		err = prod.Validate()
+		if err != nil {
+			p.l.Println("[ERROR] validating product", err)
+			http.Error(
+				rw,
+				fmt.Sprintf("Error validating product: %s", err),
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		// add the product to the context
 		ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
 		req := r.WithContext(ctx)
+
 		next.ServeHTTP(rw, req)
 	})
 }
