@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+// MiddlewareValidateProduct validates the product in the request and calls next if ok
 func (p Products) MiddlewareValidateProduct(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		prod := &data.Product{}
