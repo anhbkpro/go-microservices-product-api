@@ -17,9 +17,11 @@ package handlers
 
 import "github.com/anhbkpro/go-microservices-product-api/data"
 
-// Description of the error
-// in: body
+// Generic error message returned as a string
+// swagger:response errorResponse
 type errorResponseWrapper struct {
+	// Description of the error
+	// in: body
 	Body GenericError
 }
 
@@ -61,7 +63,7 @@ type productParamsWrapper struct {
 	Body data.Product
 }
 
-// swagger:parameters updateProduct
+// swagger:parameters listSingleProduct deleteProduct
 type productIDParamsWrapper struct {
 	// The id of the product for which the operation relates
 	// in: path

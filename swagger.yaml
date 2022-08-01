@@ -2,6 +2,14 @@ basePath: /
 consumes:
 - application/json
 definitions:
+  GenericError:
+    description: GenericError is a generic error message returned by a server
+    properties:
+      message:
+        type: string
+        x-go-name: Message
+    type: object
+    x-go-package: github.com/anhbkpro/go-microservices-product-api/handlers
   Product:
     description: Product defines the structure for an API product
     properties:
@@ -95,13 +103,6 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/Product'
-      - description: The id of the product for which the operation relates
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-        x-go-name: ID
       responses:
         "201":
           $ref: '#/responses/noContentResponse'
@@ -115,6 +116,14 @@ paths:
     delete:
       description: Update a products details
       operationId: deleteProduct
+      parameters:
+      - description: The id of the product for which the operation relates
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+        x-go-name: ID
       responses:
         "201":
           $ref: '#/responses/noContentResponse'
@@ -124,9 +133,31 @@ paths:
           $ref: '#/responses/errorResponse'
       tags:
       - products
+    get:
+      description: Return a list of products from the database
+      operationId: listSingleProduct
+      parameters:
+      - description: The id of the product for which the operation relates
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/productResponse'
+        "404":
+          $ref: '#/responses/errorResponse'
+      tags:
+      - products
 produces:
 - application/json
 responses:
+  errorResponse:
+    description: Generic error message returned as a string
+    schema:
+      $ref: '#/definitions/GenericError'
   errorValidation:
     description: Validation errors defined as an array of strings
     schema:

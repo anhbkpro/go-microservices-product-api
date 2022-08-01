@@ -5,6 +5,7 @@ import (
 	"github.com/anhbkpro/go-microservices-product-api/data"
 	"github.com/anhbkpro/go-microservices-product-api/handlers"
 	"github.com/go-openapi/runtime/middleware"
+	gohandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -39,6 +40,9 @@ func main() {
 	deleteRouter := r.Methods(http.MethodDelete).Subrouter()
 	deleteRouter.HandleFunc("/products/{id:[0-9]+}", ph.Delete)
 
+	// CORS
+	ch := gohandlers.CORS(gohandlers.AllowedOrigins([]string{"http://localhost:3000"}))
+
 	// handler for documentation
 	opts := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
 	sh := middleware.Redoc(opts, nil)
@@ -48,7 +52,7 @@ func main() {
 
 	s := &http.Server{
 		Addr:         ":9090",
-		Handler:      r,
+		Handler:      ch(r),
 		IdleTimeout:  120 * time.Second,
 		ReadTimeout:  1 * time.Second,
 		WriteTimeout: 1 * time.Second,
