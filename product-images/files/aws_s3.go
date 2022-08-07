@@ -2,12 +2,16 @@ package files
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -16,9 +20,12 @@ import (
 
 func main() {
 	var awsRegion, bucketName, filePath string
+	var timeout time.Duration
+
 	flag.StringVar(&awsRegion, "r", "", "AWS region")
 	flag.StringVar(&bucketName, "b", "", "AWS S3 bucket to upload to")
 	flag.StringVar(&filePath, "f", "", "Path to the file to upload")
+	flag.DurationVar(&timeout, "d", 0, "Upload timeout.")
 	flag.Parse()
 
 	if awsRegion == "" || bucketName == "" || filePath == "" {
@@ -27,16 +34,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create AWS session.
-	session, err := session.NewSession(&aws.Config{Region: aws.String(awsRegion)})
-	if err != nil {
-		log.Fatalf("could not initialize new aws session: %v", err)
+	// Create AWS session. A Session should be shared where possible to take advantage of
+	// configuration and credential caching.
+	sess := session.Must(session.NewSession())
+
+	svc := s3.New(sess)
+
+	// Create a context with a timeout that will abort the upload if it takes
+	// more than the passed in timeout.
+	ctx := context.Background()
+	var cancelFn func()
+	if timeout > 0 {
+		ctx, cancelFn = context.WithTimeout(ctx, timeout)
 	}
 
-	s3Client := s3.New(session)
+	// Ensure the context is canceled to prevent leaking.
+	if cancelFn != nil {
+		defer cancelFn()
+	}
 
 	// Call the upload to s3 file
-	err = uploadFileToS3(s3Client, bucketName, filePath)
+	err := uploadFileToS3(svc, bucketName, filePath)
 	if err != nil {
 		log.Fatalf("could not upload file: %v", err)
 	}
@@ -71,4 +89,22 @@ func uploadFileToS3(s3Client *s3.S3, bucketName, filePath string) error {
 		ServerSideEncryption: aws.String("AES256"),
 	})
 	return err
+}
+
+func uploadFileToS3WithContext(svc *s3.S3, ctx context.Context, bucket, key string) {
+	_, err := svc.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+		Body:   os.Stdin,
+	})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
+			fmt.Fprintf(os.Stdout, "upload canceled due to timeout , %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stdout, "failed to upload object , %v\n", err)
+		}
+		os.Exit(1)
+	}
+
+	fmt.Printf("successfully uploaded file to %s/%s\n", bucket, key)
 }
