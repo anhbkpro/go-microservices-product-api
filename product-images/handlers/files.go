@@ -18,14 +18,31 @@ func NewFiles(s files.Storage, l hclog.Logger) *Files {
 	return &Files{store: s, log: l}
 }
 
-func (f *Files) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+// UploadREST implements the http.Handler interface
+func (f *Files) UploadREST(rw http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	fn := vars["filename"]
 
 	f.log.Info("Handle POST", "id", id, "filename", fn)
 
+	// check that the filepath is a valid name and file
+	if id == "" || fn == "" {
+		f.invalidURI(r.URL.String(), rw)
+		return
+	}
+
 	f.saveFile(id, fn, rw, r)
+}
+
+func (f *Files) UploadMultipart(rw http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(128 * 1024)
+	if err != nil {
+		f.log.Error("Bad request", "error", err)
+		http.Error(rw, "Expected multipart form data", http.StatusBadRequest)
+		return
+	}
+
 }
 
 func (f *Files) invalidURI(uri string, rw http.ResponseWriter) {
