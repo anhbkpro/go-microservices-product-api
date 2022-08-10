@@ -4,8 +4,10 @@ import (
 	"github.com/anhbkpro/go-microservices-product-api/product-images/files"
 	"github.com/gorilla/mux"
 	"github.com/hashicorp/go-hclog"
+	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 )
 
 type Files struct {
@@ -32,7 +34,7 @@ func (f *Files) UploadREST(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f.saveFile(id, fn, rw, r)
+	f.saveFile(id, fn, rw, r.Body)
 }
 
 func (f *Files) UploadMultipart(rw http.ResponseWriter, r *http.Request) {
@@ -43,6 +45,24 @@ func (f *Files) UploadMultipart(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id, idErr := strconv.Atoi(r.FormValue("id"))
+	f.log.Info("Process form for id", "id", id)
+
+	if idErr != nil {
+		f.log.Error("Bad request", "error", err)
+		http.Error(rw, "Expected integer id", http.StatusBadRequest)
+		return
+	}
+
+	ff, mh, err := r.FormFile("file")
+	if err != nil {
+		f.log.Error("Bad request", "error", err)
+		http.Error(rw, "Expected file", http.StatusBadRequest)
+		return
+	}
+
+	f.saveFile(string(id), mh.Filename, rw, ff)
+
 }
 
 func (f *Files) invalidURI(uri string, rw http.ResponseWriter) {
@@ -50,11 +70,11 @@ func (f *Files) invalidURI(uri string, rw http.ResponseWriter) {
 	http.Error(rw, "Invalid file path should be in the format: /{id}/{filename}", http.StatusBadRequest)
 }
 
-func (f *Files) saveFile(id, path string, rw http.ResponseWriter, r *http.Request) {
+func (f *Files) saveFile(id, path string, rw http.ResponseWriter, r io.ReadCloser) {
 	f.log.Info("Save file for product", "id", id, "path", path)
 
 	fp := filepath.Join(id, path)
-	err := f.store.Save(fp, r.Body)
+	err := f.store.Save(fp, r)
 	if err != nil {
 		f.log.Error("Unable to save files", "error", err)
 		http.Error(rw, "Unable to save file", http.StatusInternalServerError)
