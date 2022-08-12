@@ -62,7 +62,6 @@ func (f *Files) UploadMultipart(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	f.saveFile(string(id), mh.Filename, rw, ff)
-
 }
 
 func (f *Files) invalidURI(uri string, rw http.ResponseWriter) {
